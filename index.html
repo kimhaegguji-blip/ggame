@@ -566,6 +566,77 @@
             }
             renderer.render(scene, camera);
         }
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!isPlaying) return;
+
+            const now = performance.now();
+            
+            // [수정 1] 화면을 껐다 켰을 때 시간이 폭주하는 것을 막기 위해 최대 0.1초로 제한
+            const delta = Math.min(clock.getDelta(), 0.1); 
+            
+            updateContinuousUI(now);
+
+            if (isMouseDown && (weapons[currentWeapon].type === 'auto')) tryFireWeapon();
+
+            swayX += (0 - swayX) * 0.1; swayY += (0 - swayY) * 0.1;
+            if(!isAiming && !isReloading) { viewmodelContainer.style.transform = `translate(${swayX}px, ${swayY}px)`; }
+
+            let targetFov = isAiming ? (weapons[currentWeapon].fov || 45) : 75; 
+            camera.fov += (targetFov - camera.fov) * 0.15; camera.updateProjectionMatrix();
+
+            const oldPos = camera.position.clone();
+            const currentSpeed = (isSprinting && !isAiming) ? sprintSpeed : baseSpeed;
+            
+            if (moveState.forward) controls.moveForward(currentSpeed * delta); 
+            if (moveState.backward) controls.moveForward(-currentSpeed * delta);
+            if (moveState.right) controls.moveRight(currentSpeed * delta); 
+            if (moveState.left) controls.moveRight(-currentSpeed * delta);
+
+            // [점프 중력 엔진]
+            velocityY -= gravity * delta; camera.position.y += velocityY * delta; 
+            if (camera.position.y <= playerHeight) { camera.position.y = playerHeight; velocityY = 0; canJump = true; }
+
+            // [수정 2] 맵 이탈 방지 (투명한 벽 생성) - 맵 크기인 200x200을 벗어나지 못하게 함
+            if (camera.position.x > 95) camera.position.x = 95;
+            if (camera.position.x < -95) camera.position.x = -95;
+            if (camera.position.z > 95) camera.position.z = 95;
+            if (camera.position.z < -95) camera.position.z = -95;
+
+            let isColliding = false;
+            for(let c of mapColliders) {
+                const box = new THREE.Box3().setFromObject(c); box.expandByScalar(1);
+                if(box.containsPoint(camera.position)) { isColliding = true; break; }
+            }
+            if(isColliding) { camera.position.x = oldPos.x; camera.position.z = oldPos.z; }
+
+            if (otherPlayerMesh.userData.leftLeg) {
+                const ud = otherPlayerMesh.userData; const dist = otherPlayerMesh.position.distanceTo(ud.prevPos || otherPlayerMesh.position); ud.prevPos = otherPlayerMesh.position.clone();
+                if (dist > 0.05) ud.walkTime += delta * 15; else ud.walkTime = 0; 
+                const swing = Math.sin(ud.walkTime) * 0.6; ud.leftLeg.rotation.x = swing; ud.rightLeg.rotation.x = -swing; ud.leftArm.rotation.x = -swing; ud.rightArm.rotation.x = swing;
+            }
+
+            networkTick++;
+            if(conn && conn.open && networkTick % 2 === 0) {
+                const euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.setFromQuaternion(camera.quaternion);
+                conn.send({ type: 'pos', x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: euler.y });
+            }
+            renderer.render(scene, camera);
+        }
+
+        // [수정 3] 게임 도중 다른 탭(화면)으로 넘어갔을 때 조준 및 사격 상태 강제 초기화
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                isAiming = false;
+                isMouseDown = false;
+                isSprinting = false;
+                moveState.forward = false; moveState.backward = false;
+                moveState.left = false; moveState.right = false;
+                document.body.classList.remove('ads');
+                resetScopeUI(); // 스나이퍼 까만 화면 해제
+            }
+        });
+
         window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
         animate();
     </script>
