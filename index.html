@@ -2,278 +2,261 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title>리얼 사격 게임</title>
+    <title>3D 웹 FPS 게임</title>
     <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: none;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #111;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: 'Impact', sans-serif;
-            overflow: hidden;
-        }
-
-        #game-container {
-            position: relative;
-            width: 800px;
-            height: 600px;
-            max-width: 100vw;
-            max-height: 100vh;
-            background-color: #4CAF50;
-            border: 6px solid #333;
-            border-radius: 5px;
-            overflow: hidden;
-            cursor: crosshair;
-            transition: transform 0.05s; /* 반동 애니메이션을 위한 설정 */
-        }
-
-        /* 총을 쐈을 때 화면이 흔들리는 반동 효과 */
-        .shake {
-            transform: translate(5px, 5px) scale(1.02);
-        }
-
-        /* 총구 섬광 (화면이 번쩍이는 효과) */
-        #flash {
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body { overflow: hidden; background-color: #000; font-family: 'Impact', sans-serif; }
+        
+        /* 십자선 (조준경) */
+        #crosshair {
             position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(255, 255, 200, 0.8);
-            opacity: 0;
-            pointer-events: none;
-            z-index: 15;
-            transition: opacity 0.05s;
-        }
-
-        #ui-layer {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
+            top: 50%; left: 50%;
+            width: 20px; height: 20px;
+            transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 10;
         }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background-color: #00ff00;
+        }
+        #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
+        #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
 
-        .ui-text {
-            color: white;
-            font-size: 28px;
+        /* UI 영역 */
+        #ui-layer {
+            position: absolute;
+            top: 20px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between;
+            color: white; font-size: 30px;
+            pointer-events: none; z-index: 10;
             text-shadow: 2px 2px 0 #000;
-            letter-spacing: 2px;
+        }
+        #health { color: #ff4444; }
+
+        /* 총구 섬광 효과 */
+        #flash {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(255, 255, 200, 0.5);
+            opacity: 0; pointer-events: none; z-index: 5;
+            transition: opacity 0.05s;
         }
 
-        #target {
-            position: absolute;
-            width: 70px;
-            height: 70px;
-            background: radial-gradient(circle, red 20%, white 21%, white 40%, red 41%, red 60%, white 61%, white 80%, red 81%);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            display: none;
-            box-shadow: 2px 5px 10px rgba(0,0,0,0.5);
-            -webkit-tap-highlight-color: transparent;
+        /* 시작 화면 */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 20; color: white;
         }
-
-        #screen-overlay {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 20;
-        }
-
-        #screen-title {
-            color: #FF4B4B;
-            font-size: 40px;
-            margin-bottom: 20px;
-            text-align: center;
-            text-shadow: 3px 3px 0 #fff;
-        }
-
         #start-btn {
-            padding: 15px 50px;
-            font-size: 24px;
-            font-family: 'Impact', sans-serif;
-            color: #000;
-            background-color: #FFCC00;
-            border: 4px solid #fff;
-            border-radius: 10px;
-            cursor: pointer;
-            box-shadow: 0 6px 0 #B38F00;
-            transition: 0.1s;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        #start-btn:active {
-            transform: translateY(6px);
-            box-shadow: none;
+            margin-top: 20px; padding: 15px 40px; font-size: 24px; font-family: 'Impact', sans-serif;
+            background-color: #FFCC00; border: none; cursor: pointer; border-radius: 5px;
         }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div id="flash"></div> <!-- 섬광 효과용 요소 -->
-        <div id="ui-layer">
-            <div id="score-display" class="ui-text">SCORE: 0</div>
-            <div id="time-display" class="ui-text">TIME: 30</div>
-        </div>
-
-        <div id="target"></div>
-
-        <div id="screen-overlay">
-            <div id="screen-title">SNIPER TRAINING<br><span style="font-size: 20px; color: #ccc; text-shadow: none;">화면을 탭하여 사격하세요!</span></div>
-            <button id="start-btn">START</button>
-        </div>
+    <div id="flash"></div>
+    <div id="crosshair"></div>
+    
+    <div id="ui-layer">
+        <div id="score-display">SCORE: 0</div>
+        <div id="health">HP: 100</div>
     </div>
 
+    <div id="start-screen">
+        <h1 style="font-size: 50px; color: #ff4444;">AI CUBE SHOOTER</h1>
+        <p style="font-size: 20px; margin-top: 10px;">이동: W, A, S, D | 사격: 마우스 왼쪽 클릭</p>
+        <button id="start-btn">게임 시작 (화면 클릭)</button>
+    </div>
+
+    <!-- Three.js 및 PointerLockControls 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+
     <script>
-        const gameContainer = document.getElementById('game-container');
-        const target = document.getElementById('target');
+        // === 1. 게임 기본 설정 ===
+        let score = 0;
+        let hp = 100;
+        let isPlaying = false;
+
         const scoreDisplay = document.getElementById('score-display');
-        const timeDisplay = document.getElementById('time-display');
-        const screenOverlay = document.getElementById('screen-overlay');
-        const screenTitle = document.getElementById('screen-title');
+        const healthDisplay = document.getElementById('health');
+        const startScreen = document.getElementById('start-screen');
         const startBtn = document.getElementById('start-btn');
         const flash = document.getElementById('flash');
 
-        let score = 0;
-        let timeLeft = 30;
-        let gameInterval = null;
-        let targetInterval = null;
-        let isPlaying = false;
-        
-        // 웹 오디오 API 설정 (총소리용)
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // === 2. 3D 씬(Scene) 구성 ===
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // 하늘색 배경
+        scene.fog = new THREE.Fog(0x87CEEB, 0, 100); // 안개 효과
 
-        // 총소리 발생 함수 (파일 없이 코드로 소리 생성)
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.y = 2; // 플레이어 눈높이
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 조명 추가
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        // 바닥(잔디밭) 생성
+        const floorGeo = new THREE.PlaneGeometry(200, 200);
+        const floorMat = new THREE.MeshLambertMaterial({ color: 0x4CAF50 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        // === 3. 적(AI) 생성 ===
+        // 붉은색 큐브가 플레이어를 쫓아옵니다.
+        const enemyGeo = new THREE.BoxGeometry(2, 2, 2);
+        const enemyMat = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+        const enemy = new THREE.Mesh(enemyGeo, enemyMat);
+        scene.add(enemy);
+
+        function spawnEnemy() {
+            // 플레이어 주변 무작위 위치에서 리스폰
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * 20 + 15; // 15~35 거리
+            enemy.position.x = camera.position.x + Math.cos(angle) * distance;
+            enemy.position.z = camera.position.z + Math.sin(angle) * distance;
+            enemy.position.y = 1;
+        }
+        spawnEnemy();
+
+        // === 4. 조작 (PointerLock & WASD) ===
+        const controls = new THREE.PointerLockControls(camera, document.body);
+
+        startBtn.addEventListener('click', () => {
+            controls.lock();
+        });
+
+        controls.addEventListener('lock', () => {
+            startScreen.style.display = 'none';
+            if (hp <= 0) { hp = 100; score = 0; updateUI(); spawnEnemy(); }
+            isPlaying = true;
+        });
+
+        controls.addEventListener('unlock', () => {
+            if (hp > 0) startScreen.style.display = 'flex';
+            isPlaying = false;
+        });
+
+        const moveState = { forward: false, backward: false, left: false, right: false };
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyW') moveState.forward = true;
+            if (e.code === 'KeyS') moveState.backward = true;
+            if (e.code === 'KeyA') moveState.left = true;
+            if (e.code === 'KeyD') moveState.right = true;
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyW') moveState.forward = false;
+            if (e.code === 'KeyS') moveState.backward = false;
+            if (e.code === 'KeyA') moveState.left = false;
+            if (e.code === 'KeyD') moveState.right = false;
+        });
+
+        // === 5. 사격 로직 (Raycaster) ===
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
         function playGunSound() {
             if(audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-            
             osc.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-            
             osc.type = 'square';
             osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            
+            osc.frequency.exponentialRTime(0.01, audioCtx.currentTime + 0.1);
             gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            
             osc.start(audioCtx.currentTime);
             osc.stop(audioCtx.currentTime + 0.1);
         }
 
-        // 총 쏘는 효과 (화면 흔들림 & 섬광)
-        function triggerShootEffect() {
-            // 소리 재생
+        const raycaster = new THREE.Raycaster();
+        const center = new THREE.Vector2(0, 0);
+
+        document.addEventListener('mousedown', () => {
+            if (!isPlaying) return;
+
+            // 1. 발사 이펙트
             playGunSound();
-            
-            // 섬광 켜기
             flash.style.opacity = '1';
-            
-            // 화면 흔들기
-            gameContainer.classList.add('shake');
-            
-            // 0.05초 뒤에 원상복구
-            setTimeout(() => {
-                flash.style.opacity = '0';
-                gameContainer.classList.remove('shake');
-            }, 50);
-        }
+            setTimeout(() => flash.style.opacity = '0', 50);
 
-        function startGame() {
-            // 오디오 컨텍스트 초기화 (브라우저 정책상 사용자 인터랙션 시 활성화 필요)
-            if(audioCtx.state === 'suspended') audioCtx.resume();
+            // 2. 광선(Ray)을 쏴서 적이 맞았는지 확인
+            raycaster.setFromCamera(center, camera);
+            const intersects = raycaster.intersectObject(enemy);
 
-            score = 0;
-            timeLeft = 30;
-            isPlaying = true;
-            
-            scoreDisplay.textContent = `SCORE: ${score}`;
-            timeDisplay.textContent = `TIME: ${timeLeft}`;
-            
-            screenOverlay.style.display = 'none';
-            target.style.display = 'block';
-            
-            clearInterval(gameInterval);
-            clearInterval(targetInterval);
-            
-            moveTarget();
-            gameInterval = setInterval(updateTimer, 1000);
-            targetInterval = setInterval(moveTarget, 1200); // 난이도 약간 상승 (1.2초)
-        }
-
-        function updateTimer() {
-            timeLeft--;
-            timeDisplay.textContent = `TIME: ${timeLeft}`;
-            if (timeLeft <= 0) endGame();
-        }
-
-        function moveTarget() {
-            if (!isPlaying) return;
-
-            let width = gameContainer.clientWidth || window.innerWidth;
-            let height = gameContainer.clientHeight || window.innerHeight;
-
-            const randomX = Math.random() * (85 - 15) + 15; 
-            const randomY = Math.random() * (85 - 15) + 15; 
-
-            target.style.left = `${randomX}%`;
-            target.style.top = `${randomY}%`;
-        }
-
-        function endGame() {
-            isPlaying = false;
-            clearInterval(gameInterval);
-            clearInterval(targetInterval);
-            target.style.display = 'none';
-            
-            screenTitle.innerHTML = `MISSION COMPLETE<br><span style="color: #fff; font-size: 40px; text-shadow: 2px 2px 0 #000;">FINAL SCORE: ${score}</span>`;
-            startBtn.textContent = 'RESTART';
-            screenOverlay.style.display = 'flex';
-        }
-
-        // 과녁을 맞췄을 때
-        function hitTarget(e) {
-            if (!isPlaying) return;
-            if(e) { e.stopPropagation(); if(e.cancelable) e.preventDefault(); }
-
-            score += 10;
-            scoreDisplay.textContent = `SCORE: ${score}`;
-            
-            // 명중했을 때는 더 빨리 다음 과녁이 나오도록 처리
-            clearInterval(targetInterval);
-            moveTarget();
-            targetInterval = setInterval(moveTarget, 1200);
-        }
-
-        // 화면 어디든 누르면 총 쏘는 효과 발생 (허공에 쏴도 소리와 반동 적용)
-        gameContainer.addEventListener('pointerdown', (e) => {
-            if (isPlaying) triggerShootEffect();
+            if (intersects.length > 0) {
+                // 명중!
+                score += 10;
+                updateUI();
+                spawnEnemy(); // 적 리스폰
+            }
         });
 
-        // 과녁 터치 이벤트 (이벤트 버블링을 통해 부모의 반동 효과도 같이 실행됨)
-        target.addEventListener('pointerdown', hitTarget);
+        // === 6. 게임 루프 (AI 이동 및 프레임 업데이트) ===
+        const clock = new THREE.Clock();
+        const speed = 15; // 플레이어 이동 속도
+        const enemySpeed = 4; // AI 이동 속도
 
-        startBtn.addEventListener('click', startGame);
+        function updateUI() {
+            scoreDisplay.textContent = `SCORE: ${score}`;
+            healthDisplay.textContent = `HP: ${hp}`;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!isPlaying) return;
+
+            const delta = clock.getDelta();
+
+            // 플레이어 이동 로직
+            if (moveState.forward) controls.moveForward(speed * delta);
+            if (moveState.backward) controls.moveForward(-speed * delta);
+            if (moveState.right) controls.moveRight(speed * delta);
+            if (moveState.left) controls.moveRight(-speed * delta);
+
+            // AI 이동 로직 (플레이어를 바라보며 전진)
+            const targetPos = new THREE.Vector3(camera.position.x, enemy.position.y, camera.position.z);
+            enemy.lookAt(targetPos);
+            enemy.translateZ(enemySpeed * delta);
+
+            // AI와의 충돌(피격) 판정
+            const distance = enemy.position.distanceTo(camera.position);
+            if (distance < 2.5) {
+                // 적에게 닿으면 데미지를 입고 적 리스폰
+                hp -= 20;
+                updateUI();
+                spawnEnemy();
+                
+                if (hp <= 0) {
+                    controls.unlock();
+                    document.getElementById('start-btn').textContent = "게임 오버! 다시 시작";
+                    startScreen.style.display = 'flex';
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // 화면 크기 변경 대응
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
     </script>
 </body>
 </html>
