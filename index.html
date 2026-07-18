@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>3D 웹 FPS (스나이퍼 스코프 & 캐릭터 애니메이션 & 달리기)</title>
+    <title>3D 웹 FPS (점프 추가 및 실사 무기 적용)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
@@ -12,17 +12,6 @@
         #crosshair::before, #crosshair::after { content: ''; position: absolute; background-color: #00ff00; transition: 0.2s; }
         #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
         #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
-
-        /* 저격소총 전용 스코프 렌즈 (기본 숨김) */
-        #sniper-scope {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle, transparent 15%, rgba(0,0,0,0.95) 45%, black 100%);
-            display: none; pointer-events: none; z-index: 15;
-            justify-content: center; align-items: center;
-        }
-        #sniper-scope .line-h { position: absolute; width: 100%; height: 2px; background: rgba(255, 0, 0, 0.8); }
-        #sniper-scope .line-v { position: absolute; width: 2px; height: 100%; background: rgba(255, 0, 0, 0.8); }
-        #sniper-scope .center-dot { position: absolute; width: 6px; height: 6px; background: red; border-radius: 50%; }
 
         #ui-layer { position: absolute; top: 20px; left: 20px; right: 20px; display: none; justify-content: space-between; color: white; font-size: 30px; pointer-events: none; z-index: 10; text-shadow: 2px 2px 0 #000; }
         #ammo-display { position: absolute; bottom: 30px; right: 40px; color: #FFCC00; font-size: 40px; pointer-events: none; z-index: 10; text-shadow: 3px 3px 0 #000; display: none; }
@@ -50,7 +39,9 @@
         #lobby-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #111; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: white; overflow-y: auto; }
         .lobby-box { background: #222; padding: 25px; border-radius: 10px; border: 2px solid #444; text-align: center; width: 550px; margin-top: 50px; margin-bottom: 30px; }
         h1 { font-size: 36px; color: #00ff00; margin-bottom: 5px; }
+        
         #coin-display { font-size: 28px; color: #FFCC00; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #555; padding-bottom: 10px; }
+
         .select-container { display: flex; flex-wrap: wrap; justify-content: space-between; }
         .select-group { width: 48%; margin-bottom: 12px; text-align: left; background: #333; padding: 12px; border-radius: 5px; }
         .select-group.full { width: 100%; }
@@ -76,14 +67,6 @@
 
     <div id="flash"></div><div id="hit-flash"></div><div id="block-flash"></div>
     <div id="crosshair"></div>
-    
-    <!-- 저격소총 스코프 레이어 -->
-    <div id="sniper-scope">
-        <div class="line-h"></div>
-        <div class="line-v"></div>
-        <div class="center-dot"></div>
-    </div>
-
     <div id="coin-alert">+200 COINS!</div>
     
     <div id="ui-layer">
@@ -175,15 +158,12 @@
         let isReloading = false; let isAiming = false; let isMouseDown = false; let lastFireTime = 0;
         let swayX = 0; let swayY = 0; 
         
-        // 이동 및 물리 변수
+        // 점프를 위한 물리 엔진 변수
         let velocityY = 0;
         let canJump = true;
-        let isSprinting = false; // 달리기 상태
-        const gravity = 35.0; 
-        const jumpStrength = 13.0; 
-        const playerHeight = 2.0; 
-        const baseSpeed = 15; // 걷기 속도
-        const sprintSpeed = 26; // 달리기 속도
+        const gravity = 35.0; // 중력
+        const jumpStrength = 13.0; // 점프력
+        const playerHeight = 2.0; // 기본 카메라 눈높이
 
         const db = {
             primary: {
@@ -208,7 +188,7 @@
             special: {
                 'MEDKIT': { name: 'MEDKIT', desc: '구급상자 (HP 40 회복)', type: 'heal', maxAmmo: '∞', ammo: '∞', heal: 40, cooldown: 10000, lastUse: 0, price: 0, img: 'https://www.pngmart.com/files/7/First-Aid-Kit-PNG-Transparent.png' },
                 'STIMPACK': { name: 'STIMPACK', desc: '아드레날린 주사기', type: 'heal', maxAmmo: '∞', ammo: '∞', heal: 100, cooldown: 15000, lastUse: 0, price: 4000, img: 'https://www.pngmart.com/files/21/Syringe-PNG-Isolated-HD.png' },
-                'RPG': { name: 'RPG', desc: '로켓 런처 (즉사 파괴력)', type: 'semi', maxAmmo: 1, ammo: 1, dmg: 150, delay: 1000, range: 250, fov: 60, price: 15000, img: 'https://www.pngmart.com/files/2/RPG-PNG-Transparent-Picture.png' },
+                'RPG': { name: 'RPG', desc: '로켓 런처 (즉사급 파괴력)', type: 'semi', maxAmmo: 1, ammo: 1, dmg: 150, delay: 1000, range: 250, fov: 60, price: 15000, img: 'https://www.pngmart.com/files/2/RPG-PNG-Transparent-Picture.png' },
                 'LASER': { name: 'LASER', desc: '외계 레이저건 (초월 무기)', type: 'auto', maxAmmo: 100, ammo: 100, dmg: 25, delay: 50, range: 300, fov: 40, price: 25000, img: 'https://www.pngmart.com/files/3/Ray-Gun-PNG-Clipart.png' }
             }
         };
@@ -223,7 +203,6 @@
         const crosshair = document.getElementById('crosshair'); const uiLayer = document.getElementById('ui-layer');
         const viewmodelContainer = document.getElementById('viewmodel-container'); const weaponImg = document.getElementById('weapon-img');
         const pauseScreen = document.getElementById('pause-screen');
-        const sniperScope = document.getElementById('sniper-scope');
 
         function populateSelects() {
             ['primary', 'secondary', 'melee', 'special'].forEach(category => {
@@ -276,37 +255,7 @@
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(10, 20, 10); scene.add(dirLight);
         const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshLambertMaterial({ color: 0x4CAF50 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
 
-        // === 인간형 플레이어 3D 모델 생성기 ===
-        function createPlayerModel(colorHex) {
-            const group = new THREE.Group();
-            const shirtMat = new THREE.MeshLambertMaterial({ color: colorHex });
-            const skinMat = new THREE.MeshLambertMaterial({ color: 0xffcc99 });
-            const pantsMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
-
-            // 머리
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), skinMat);
-            head.position.y = 1.8; group.add(head);
-
-            // 몸통
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.3), shirtMat);
-            body.position.y = 1.25; group.add(body);
-
-            // 팔 (좌우)
-            const armGeo = new THREE.BoxGeometry(0.2, 0.7, 0.2);
-            const leftArm = new THREE.Mesh(armGeo, skinMat); leftArm.position.set(-0.45, 1.25, 0); group.add(leftArm);
-            const rightArm = new THREE.Mesh(armGeo, skinMat); rightArm.position.set(0.45, 1.25, 0); group.add(rightArm);
-
-            // 다리 (좌우)
-            const legGeo = new THREE.BoxGeometry(0.3, 0.9, 0.3);
-            const leftLeg = new THREE.Mesh(legGeo, pantsMat); leftLeg.position.set(-0.2, 0.45, 0); group.add(leftLeg);
-            const rightLeg = new THREE.Mesh(legGeo, pantsMat); rightLeg.position.set(0.2, 0.45, 0); group.add(rightLeg);
-
-            // 애니메이션을 위해 부품 정보를 userData에 저장
-            group.userData = { leftLeg, rightLeg, leftArm, rightArm, walkTime: 0 };
-            return group;
-        }
-
-        const otherPlayerMesh = createPlayerModel(0x0044ff); // 파란색 유저
+        const otherPlayerMesh = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 1.5), new THREE.MeshLambertMaterial({ color: 0x0000ff }));
         otherPlayerMesh.position.set(0, -100, 0); scene.add(otherPlayerMesh);
 
         const mapGroup = new THREE.Group(); scene.add(mapGroup); const mapColliders = [];
@@ -388,12 +337,6 @@
             }
         }
 
-        function resetScopeUI() {
-            sniperScope.style.display = 'none';
-            viewmodelContainer.style.display = 'block';
-            crosshair.style.opacity = '1';
-        }
-
         function equipWeapon(slot) {
             if(isReloading) return;
             currentWeapon = slot; const w = weapons[currentWeapon];
@@ -404,9 +347,7 @@
 
             for(let i=1; i<=4; i++) document.getElementById(`slot-${i}`).classList.remove('active');
             document.getElementById(`slot-${slot}`).classList.add('active');
-            
             isAiming = false; document.body.classList.remove('ads');
-            resetScopeUI();
         }
 
         function respawn() {
@@ -416,8 +357,8 @@
             if(weapons[3] && weapons[3].type === 'melee_shield') { weapons[3].blockCharges = weapons[3].maxBlocks; weapons[3].lastBlockTime = 0; }
             if(weapons[4] && weapons[4].ammo !== '∞') weapons[4].ammo = weapons[4].maxAmmo;
             camera.position.copy(getValidSpawnPos());
-            velocityY = 0; canJump = true;
-            resetScopeUI();
+            velocityY = 0; // 점프 속도 초기화
+            canJump = true;
         }
 
         function initGameData() {
@@ -459,11 +400,7 @@
         function setupNetwork() {
             conn.on('data', (data) => {
                 if(data.type === 'start') { buildMap(data.map); startGame(); }
-                else if(data.type === 'pos') { 
-                    // 수신된 Y축에서 카메라 높이(2.0)를 빼면 발바닥이 바닥에 정확히 닿음
-                    otherPlayerMesh.position.set(data.x, data.y - 2.0, data.z); 
-                    otherPlayerMesh.rotation.y = data.ry; 
-                }
+                else if(data.type === 'pos') { otherPlayerMesh.position.set(data.x, data.y - 1, data.z); otherPlayerMesh.rotation.y = data.ry; }
                 else if(data.type === 'shoot') { playGunSound('enemyShoot'); }
                 else if(data.type === 'hit') {
                     const w = weapons[currentWeapon]; const now = performance.now();
@@ -481,6 +418,7 @@
                 }
                 else if(data.type === 'kill') { 
                     kills += 1; myCoins += 200; saveData(); 
+                    
                     const alertDiv = document.getElementById('coin-alert');
                     alertDiv.style.opacity = '1'; alertDiv.style.transform = 'translate(-50%, -20px)';
                     setTimeout(() => { alertDiv.style.opacity = '0'; alertDiv.style.transform = 'translate(-50%, 0)'; }, 1500);
@@ -506,7 +444,7 @@
             if(conn) conn.close(); if(peer) peer.destroy();
             pauseScreen.style.display = 'none';
             uiLayer.style.display = 'none'; ammoDisplay.style.display = 'none'; hotbar.style.display = 'none'; crosshair.style.display = 'none'; viewmodelContainer.style.display = 'none';
-            sniperScope.style.display = 'none'; lobbyScreen.style.display = 'flex'; updateLobbyUI(); 
+            lobbyScreen.style.display = 'flex'; updateLobbyUI(); 
         });
 
         function die() {
@@ -523,18 +461,15 @@
             if (e.code === 'Digit1') equipWeapon(1); if (e.code === 'Digit2') equipWeapon(2);
             if (e.code === 'Digit3') equipWeapon(3); if (e.code === 'Digit4') equipWeapon(4);
             
-            // 달리기 (Shift 유지)
-            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') isSprinting = true;
-            
-            // 점프 기능
+            // [신규] 스페이스 바 점프 기능 추가
             if (e.code === 'Space' && canJump) {
-                velocityY = jumpStrength; canJump = false;
+                velocityY = jumpStrength; // 위로 뛰어오름
+                canJump = false; // 공중에 있는 동안 이중 점프 방지
             }
         });
         document.addEventListener('keyup', (e) => {
             if (e.code === 'KeyW') moveState.forward = false; if (e.code === 'KeyS') moveState.backward = false;
             if (e.code === 'KeyA') moveState.left = false; if (e.code === 'KeyD') moveState.right = false;
-            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') isSprinting = false;
         });
         document.addEventListener('wheel', (e) => {
             if(!isPlaying || isReloading) return;
@@ -548,27 +483,11 @@
 
         document.addEventListener('mousedown', (e) => {
             if (!isPlaying) return;
-            // 우클릭: 정조준 및 스나이퍼 줌
-            if (e.button === 2 && !isReloading && weapons[currentWeapon].fov) { 
-                isAiming = true; document.body.classList.add('ads'); 
-                
-                if (weapons[currentWeapon].name === 'SNIPER') {
-                    sniperScope.style.display = 'flex';
-                    viewmodelContainer.style.display = 'none';
-                    crosshair.style.opacity = '0';
-                } else {
-                    crosshair.style.opacity = '0';
-                }
-            }
-            // 좌클릭: 사격
+            if (e.button === 2 && !isReloading && weapons[currentWeapon].fov) { isAiming = true; crosshair.style.opacity = '0'; document.body.classList.add('ads'); }
             if (e.button === 0) { isMouseDown = true; tryFireWeapon(); }
         });
         document.addEventListener('mouseup', (e) => {
-            if (e.button === 2) { 
-                isAiming = false; 
-                document.body.classList.remove('ads'); 
-                resetScopeUI();
-            }
+            if (e.button === 2) { isAiming = false; crosshair.style.opacity = '1'; document.body.classList.remove('ads'); }
             if (e.button === 0) isMouseDown = false;
         });
         document.addEventListener('contextmenu', e => e.preventDefault());
@@ -576,9 +495,7 @@
         const raycaster = new THREE.Raycaster(); const center = new THREE.Vector2(0, 0);
 
         function reloadWeapon() {
-            isReloading = true; isAiming = false; document.body.classList.remove('ads');
-            resetScopeUI();
-            
+            isReloading = true; isAiming = false; crosshair.style.opacity = '1'; document.body.classList.remove('ads');
             document.body.classList.add('reloading'); ammoDisplay.textContent = "RELOADING..."; ammoDisplay.style.color = "#ff4444";
             setTimeout(() => { weapons[currentWeapon].ammo = weapons[currentWeapon].maxAmmo; isReloading = false; document.body.classList.remove('reloading'); }, 1500);
         }
@@ -597,9 +514,7 @@
 
             lastFireTime = now; if (w.ammo !== '∞') w.ammo--;
 
-            if (w.name !== 'SNIPER') {
-                document.body.classList.add('shooting'); setTimeout(() => document.body.classList.remove('shooting'), 50);
-            }
+            document.body.classList.add('shooting'); setTimeout(() => document.body.classList.remove('shooting'), 50);
 
             if(w.type === 'melee' || w.type === 'melee_shield') { playGunSound('empty'); } 
             else {
@@ -611,28 +526,16 @@
                 if(conn && conn.open) conn.send({ type: 'shoot' });
             }
 
-            // 레이캐스터 판정 (true 옵션을 주어 하위 메시까지 정밀 탐색)
             raycaster.setFromCamera(center, camera);
-            const hitTargets = [otherPlayerMesh, ...mapColliders]; 
-            const intersects = raycaster.intersectObjects(hitTargets, true);
+            const hitTargets = [otherPlayerMesh, ...mapColliders]; const intersects = raycaster.intersectObjects(hitTargets);
             
-            if (intersects.length > 0) {
-                // 부딪힌 물체의 가장 상위 부모(그룹)가 플레이어인지 확인
-                let hitObj = intersects[0].object;
-                let isHitPlayer = false;
-                while(hitObj) {
-                    if (hitObj === otherPlayerMesh) { isHitPlayer = true; break; }
-                    hitObj = hitObj.parent;
-                }
-
-                if (isHitPlayer && intersects[0].distance <= w.range) {
-                    if(conn && conn.open) conn.send({ type: 'hit', damage: w.dmg });
-                }
+            if (intersects.length > 0 && intersects[0].object === otherPlayerMesh && intersects[0].distance <= w.range) {
+                if(conn && conn.open) conn.send({ type: 'hit', damage: w.dmg });
             }
             if (w.ammo === 0 && w.type !== 'melee') reloadWeapon();
         }
 
-        const clock = new THREE.Clock(); let networkTick = 0;
+        const clock = new THREE.Clock(); const speed = 15; let networkTick = 0;
 
         function updateContinuousUI(now) {
             killDisplay.textContent = `KILLS: ${kills}`; healthDisplay.textContent = `HP: ${hp}`;
@@ -672,50 +575,35 @@
 
             const oldPos = camera.position.clone();
             
-            // 달리기 적용 이동 로직
-            const currentSpeed = (isSprinting && !isAiming) ? sprintSpeed : baseSpeed;
-            if (moveState.forward) controls.moveForward(currentSpeed * delta); 
-            if (moveState.backward) controls.moveForward(-currentSpeed * delta);
-            if (moveState.right) controls.moveRight(currentSpeed * delta); 
-            if (moveState.left) controls.moveRight(-currentSpeed * delta);
+            // 이동 로직
+            if (moveState.forward) controls.moveForward(speed * delta); if (moveState.backward) controls.moveForward(-speed * delta);
+            if (moveState.right) controls.moveRight(speed * delta); if (moveState.left) controls.moveRight(-speed * delta);
 
-            // === [점프 중력 엔진] ===
-            velocityY -= gravity * delta; 
-            camera.position.y += velocityY * delta; 
+            // === [점프 물리 엔진] ===
+            velocityY -= gravity * delta; // 매 프레임마다 중력 적용
+            camera.position.y += velocityY * delta; // 카메라(플레이어) 높이 업데이트
 
+            // 바닥에 닿았을 때 (기본 눈높이 playerHeight = 2.0)
             if (camera.position.y <= playerHeight) {
                 camera.position.y = playerHeight;
-                velocityY = 0; canJump = true; 
+                velocityY = 0; // 떨어지는 속도 초기화
+                canJump = true; // 다시 점프 가능 상태로 변경
             }
 
-            // 벽 충돌 방지
+            // 벽 충돌 방지 로직
             let isColliding = false;
             for(let c of mapColliders) {
                 const box = new THREE.Box3().setFromObject(c); box.expandByScalar(1);
                 if(box.containsPoint(camera.position)) { isColliding = true; break; }
             }
             if(isColliding) {
+                // 부딪히면 이전 위치로 되돌리지만 점프 높이(Y축)는 유지시켜 줌
                 camera.position.x = oldPos.x;
                 camera.position.z = oldPos.z;
             }
 
-            // 상대방 캐릭터(인간형) 걷기 애니메이션
-            if (otherPlayerMesh.userData.leftLeg) {
-                const ud = otherPlayerMesh.userData;
-                const dist = otherPlayerMesh.position.distanceTo(ud.prevPos || otherPlayerMesh.position);
-                ud.prevPos = otherPlayerMesh.position.clone();
-                
-                if (dist > 0.05) ud.walkTime += delta * 15; // 이동하면 시간 증가
-                else ud.walkTime = 0; // 서있으면 초기화
-
-                const swing = Math.sin(ud.walkTime) * 0.6; // 다리와 팔 흔들림 각도
-                ud.leftLeg.rotation.x = swing;
-                ud.rightLeg.rotation.x = -swing;
-                ud.leftArm.rotation.x = -swing;
-                ud.rightArm.rotation.x = swing;
-            }
-
             networkTick++;
+            // 다른 플레이어에게 내 현재 위치(점프 높이 포함) 실시간 전송
             if(conn && conn.open && networkTick % 2 === 0) {
                 const euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.setFromQuaternion(camera.quaternion);
                 conn.send({ type: 'pos', x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: euler.y });
