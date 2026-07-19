@@ -48,15 +48,16 @@
         <h1 style="color:#ff4444; font-size:60px;">YOU DIED</h1><p>3초 후 부활...</p>
     </div>
 
- const firebaseConfig = }
-  apiKey: "AIzaSyCT2FzSgLDocBWQ2z3F-Jh6wnI35W2JiRo",
-  authDomain: "gun-game-7aa47.firebaseapp.com",
-  projectId: "gun-game-7aa47",
-  storageBucket: "gun-game-7aa47.firebasestorage.app",
-  messagingSenderId: "820760587515",
-  appId: "1:820760587515:web:556c29331d05a1f38d545e",
-  measurementId: "G-PDK6J08G9Z"
-};
+ const firebaseConfig = {
+            apiKey: "AIzaSyCT2FzSgLDocBWQ2z3F-Jh6wnI35W2JiRo",
+            authDomain: "gun-game-7aa47.firebaseapp.com",
+            databaseURL: "https://gun-game-7aa47-default-rtdb.firebaseio.com",
+            projectId: "gun-game-7aa47",
+            storageBucket: "gun-game-7aa47.firebasestorage.app",
+            messagingSenderId: "820760587515",
+            appId: "1:820760587515:web:556c29331d05a1f38d545e",
+            measurementId: "G-PDK6J08G9Z"
+        };
 
         // === 게임 상태 및 설정 ===
         let myId = Math.random().toString(36).substring(2, 10); // 내 고유 ID 생성
