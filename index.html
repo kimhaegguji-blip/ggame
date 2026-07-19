@@ -154,15 +154,15 @@
             return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50">${s}</svg>`)}`;
         }
 
-        const db = {
-            primary: {
-                'AR': { name: 'M4A1', desc: 'M4A1 (밸런스)', type:'auto', maxAmmo:30, ammo:30, dmg:15, delay:120, range:100, price:0, img:getSvg('AR') },
-                'SG': { name: 'SHOTGUN', desc: '산탄총 (근접)', type:'semi', maxAmmo:8, ammo:8, dmg:45, delay:800, range:25, price:2000, img:getSvg('SG') },
-                'SMG': { name: 'SMG', desc: '기관단총 (연사)', type:'auto', maxAmmo:40, ammo:40, dmg:12, delay:70, range:60, price:3000, img:getSvg('SMG') },
-                'AK47': { name: 'AK-47', desc: 'AK-47 (강력)', type:'auto', maxAmmo:30, ammo:30, dmg:22, delay:150, range:100, price:5000, img:getSvg('AR') },
-                'LMG': { name: 'M249', desc: 'M249 (100발)', type:'auto', maxAmmo:100, ammo:100, dmg:16, delay:100, range:100, price:8000, img:getSvg('AR') },
-                'SR': { name: 'SNIPER', desc: 'AWP (저격)', type:'semi', maxAmmo:5, ammo:5, dmg:80, delay:1500, range:300, price:12000, img:getSvg('SR'), fov:15 }
-            },
+        const firebaseConfig = {
+  apiKey: "AIzaSyCT2FzSgLDocBWQ2z3F-Jh6wnI35W2JiRo",
+  authDomain: "gun-game-7aa47.firebaseapp.com",
+  projectId: "gun-game-7aa47",
+  storageBucket: "gun-game-7aa47.firebasestorage.app",
+  messagingSenderId: "820760587515",
+  appId: "1:820760587515:web:556c29331d05a1f38d545e",
+  measurementId: "G-PDK6J08G9Z"
+};
             secondary: {
                 'GLOCK': { name: 'GLOCK', desc: '글록 (기본)', type:'semi', maxAmmo:15, ammo:15, dmg:18, delay:180, range:80, price:0, img:getSvg('PISTOL') },
                 'MAC10': { name: 'MAC-10', desc: 'MAC-10 (연사)', type:'auto', maxAmmo:30, ammo:30, dmg:12, delay:80, range:50, price:2000, img:getSvg('SMG') },
