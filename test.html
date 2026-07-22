@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>서버 연결 테스트</title>
+    <!-- 파이어베이스 불러오기 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body style="background: #222; color: white; text-align: center; padding-top: 100px; font-family: sans-serif;">
+
+    <h1>📡 서버 연결 테스트 중...</h1>
+    <h2 id="result" style="color: #FFCC00;">잠시만 기다려주세요...</h2>
+
+    <script>
+        try {
+            // 사용자님의 정보가 담긴 파이어베이스 설정
+            const firebaseConfig = {
+                apiKey: "AIzaSyCT2FzSgLDocBWQ2z3F-Jh6wnI35W2JiRo",
+                authDomain: "gun-game-7aa47.firebaseapp.com",
+                databaseURL: "https://gun-game-7aa47-default-rtdb.asia-southeast1.firebasedatabase.app",
+                projectId: "gun-game-7aa47",
+                storageBucket: "gun-game-7aa47.firebasestorage.app",
+                messagingSenderId: "820760587515",
+                appId: "1:820760587515:web:556c29331d05a1f38d545e"
+            };
+
+            // 파이어베이스 켜기
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.database();
+
+            // 데이터베이스에 글씨 써보기 시도
+            db.ref('test_connection').set("연결 성공!").then(() => {
+                document.getElementById('result').innerText = "✅ 완벽합니다! 파이어베이스 서버가 100% 정상 작동 중입니다!";
+                document.getElementById('result').style.color = "lime";
+            }).catch((error) => {
+                document.getElementById('result').innerHTML = "❌ 파이어베이스 통신 실패!<br><br>에러 원인: " + error.message;
+                document.getElementById('result').style.color = "red";
+            });
+
+        } catch (err) {
+            document.getElementById('result').innerHTML = "❌ 코드 실행 실패!<br><br>오타가 있습니다: " + err.message;
+            document.getElementById('result').style.color = "red";
+        }
+    </script>
+
+</body>
+</html>
